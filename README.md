@@ -6,7 +6,7 @@ DevLink is a simple developer resource hub built with **Next.js** and **Mantine 
 
 [View DevLink Live](https://devlink-dclg.vercel.app)
 
-## ✨ Features
+##  Features
 
 * Search resources by title, description, or tags.
 * Filter resources by category.
@@ -18,7 +18,7 @@ DevLink is a simple developer resource hub built with **Next.js** and **Mantine 
 * Bookmarks are saved using browser `localStorage`.
 * Search and category filters are reflected in the URL.
 
-## 🛠️ Built With
+##  Built With
 
 * **Next.js**
 * **React**
