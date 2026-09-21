@@ -1,6 +1,7 @@
-'use client'; 
+'use client';
 
 import { useEffect, useState } from 'react';
+import { useLocalStorage } from '@mantine/hooks';
 
 import {
   Badge,
@@ -28,23 +29,7 @@ export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [search, setSearch] = useState(
-    searchParams.get('search') || ''
-  );
-
-  const [category, setCategory] = useState(
-    searchParams.get('category') || 'All'
-  );
-
-  const [savedOnly, setSavedOnly] = useState(false);
-
-  const [savedResources, setSavedResources] = useState([]);
-
-  const [bookmarksLoaded, setBookmarksLoaded] = useState(false);
-
-  const [selectedResource, setSelectedResource] = useState(null);
-
-  const categories = [
+  const validCategories = [
     'All',
     'UI Libraries',
     'Backend / APIs',
@@ -52,28 +37,37 @@ export default function Home() {
     'AI Tools',
   ];
 
-  // Load bookmarks from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('devlink-bookmarks');
+  const [search, setSearch] = useState(
+    searchParams.get('search') || ''
+  );
 
-    if (saved) {
-      setSavedResources(JSON.parse(saved));
-    }
+  const [category, setCategory] = useState(() => {
+    const urlCategory = searchParams.get('category');
 
-    setBookmarksLoaded(true);
-  }, []);
+    return validCategories.includes(urlCategory)
+      ? urlCategory
+      : 'All';
+  });
 
-  // Save bookmarks to localStorage
-  useEffect(() => {
-    if (!bookmarksLoaded) return;
+  const [savedOnly, setSavedOnly] = useState(false);
 
-    localStorage.setItem(
-      'devlink-bookmarks',
-      JSON.stringify(savedResources)
-    );
-  }, [savedResources, bookmarksLoaded]);
+  const [savedResources, setSavedResources] = useLocalStorage({
+    key: 'devlink-bookmarks',
+    defaultValue: [],
+    getInitialValueInEffect: true,
+    deserialize: (value) => {
+      try {
+        const parsed = JSON.parse(value);
 
-  // Keep search and category in the URL
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const [selectedResource, setSelectedResource] = useState(null);
+
   useEffect(() => {
     const params = new URLSearchParams();
 
@@ -92,7 +86,6 @@ export default function Home() {
     );
   }, [search, category, router]);
 
-  // Add or remove bookmarks
   const toggleBookmark = (resourceId) => {
     setSavedResources((currentSaved) => {
       if (currentSaved.includes(resourceId)) {
@@ -105,17 +98,18 @@ export default function Home() {
     });
   };
 
-  // Filter resources
   const filteredResources = resources.filter((resource) => {
+    const searchText = search.toLowerCase();
+
     const matchesSearch =
       resource.title
         .toLowerCase()
-        .includes(search.toLowerCase()) ||
+        .includes(searchText) ||
       resource.description
         .toLowerCase()
-        .includes(search.toLowerCase()) ||
+        .includes(searchText) ||
       resource.tags.some((tag) =>
-        tag.toLowerCase().includes(search.toLowerCase())
+        tag.toLowerCase().includes(searchText)
       );
 
     const matchesCategory =
@@ -140,179 +134,141 @@ export default function Home() {
         backgroundColor: '#f8f9fa',
       }}
     >
-      <Container size="lg" py={50}>
+      <Container size="xl" py="xl">
         <Stack gap="xl">
 
           {/* Header */}
-          <div>
-            <Group
-              justify="space-between"
-              align="flex-start"
+          <Group justify="space-between" align="flex-start">
+            <div>
+              <Title order={1}>DevLink</Title>
+
+              <Text c="dimmed" mt={5}>
+                Discover useful resources for developers.
+              </Text>
+            </div>
+
+            <Badge
+              size="lg"
+              leftSection={<IconBookmark size={16} />}
+              color="violet"
+              variant="light"
             >
-              <div>
-                <Text
-                  size="sm"
-                  fw={700}
-                  c="violet"
-                  style={{
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  DEVELOPER RESOURCE HUB
-                </Text>
-
-                <Title
-                  order={1}
-                  mt={5}
-                  size="42px"
-                >
-                  DevLink
-                </Title>
-
-                <Text
-                  c="dimmed"
-                  mt="xs"
-                  maw={600}
-                  size="md"
-                >
-                  Discover useful tools, libraries, APIs,
-                  and resources for your next project.
-                </Text>
-              </div>
-
-              <Badge
-                leftSection={
-                  <IconBookmark size={14} />
-                }
-                variant="light"
-                size="lg"
-              >
-                {savedResources.length} Saved
-              </Badge>
-            </Group>
-          </div>
-
-          {/* Search */}
-          <Paper
-            withBorder
-            p="md"
-            radius="md"
-            shadow="xs"
-          >
-            <TextInput
-              size="md"
-              placeholder="Search by title, description, or tag..."
-              leftSection={
-                <IconSearch size={18} />
-              }
-              value={search}
-              onChange={(event) =>
-                setSearch(event.currentTarget.value)
-              }
-            />
-          </Paper>
-
-          {/* Filters */}
-          <Group
-            justify="space-between"
-            align="center"
-          >
-            <SegmentedControl
-              value={category}
-              onChange={setCategory}
-              data={categories}
-            />
-
-            <Switch
-              label="Show saved only"
-              checked={savedOnly}
-              onChange={(event) =>
-                setSavedOnly(
-                  event.currentTarget.checked
-                )
-              }
-            />
+              {savedResources.length} Saved
+            </Badge>
           </Group>
 
-          {/* Resources */}
-          <div>
-            <Group
-              justify="space-between"
-              mb="md"
+          {/* Search and Saved Filter */}
+          <Paper p="md" withBorder radius="md">
+            <Stack gap="md">
+              <TextInput
+                placeholder="Search resources..."
+                leftSection={<IconSearch size={18} />}
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.currentTarget.value)
+                }
+              />
+
+              <Group justify="space-between">
+                <Text size="sm" fw={500}>
+                  Show saved only
+                </Text>
+
+                <Switch
+                  checked={savedOnly}
+                  onChange={(event) =>
+                    setSavedOnly(
+                      event.currentTarget.checked
+                    )
+                  }
+                  color="violet"
+                />
+              </Group>
+            </Stack>
+          </Paper>
+
+          {/* Categories */}
+          <Paper p="md" withBorder radius="md">
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Category
+              </Text>
+
+              <SegmentedControl
+                fullWidth
+                value={category}
+                onChange={setCategory}
+                data={validCategories}
+                color="violet"
+              />
+            </Stack>
+          </Paper>
+
+          {/* Results */}
+          <Group justify="space-between">
+            <Text fw={500}>
+              {filteredResources.length} resource
+              {filteredResources.length !== 1 ? 's' : ''}
+            </Text>
+
+            {search && (
+              <Text size="sm" c="dimmed">
+              Searching for &quot;{search}&quot;
+              </Text>
+            )}
+          </Group>
+
+          {/* Resource Cards */}
+          {filteredResources.length > 0 ? (
+            <SimpleGrid
+              cols={{
+                base: 1,
+                sm: 2,
+                lg: 3,
+              }}
+              spacing="lg"
             >
-              <div>
-                <Title
-                  order={2}
-                  size="h3"
-                >
-                  Resources
+              {filteredResources.map((resource) => (
+                <ResourceCard
+                  key={resource.id}
+                  resource={resource}
+                  isSaved={savedResources.includes(
+                    resource.id
+                  )}
+                  onToggleBookmark={toggleBookmark}
+                  onOpenModal={setSelectedResource}
+                />
+              ))}
+            </SimpleGrid>
+          ) : (
+            <Paper
+              p="xl"
+              withBorder
+              radius="md"
+              ta="center"
+            >
+              <Stack align="center" gap="xs">
+                <IconSearch size={32} />
+
+                <Title order={3}>
+                  No resources found
                 </Title>
 
-                <Text
-                  size="sm"
-                  c="dimmed"
-                  mt={4}
-                >
-                  Useful tools and resources for developers
+                <Text c="dimmed">
+                  Try changing your search or category.
                 </Text>
-              </div>
-
-              <Text
-                size="sm"
-                c="dimmed"
-              >
-                {filteredResources.length} results
-              </Text>
-            </Group>
-
-            {filteredResources.length > 0 ? (
-              <SimpleGrid
-                cols={{
-                  base: 1,
-                  sm: 2,
-                  lg: 3,
-                }}
-                spacing="lg"
-              >
-                {filteredResources.map((resource) => (
-                  <ResourceCard
-                    key={resource.id}
-                    resource={resource}
-                    isSaved={savedResources.includes(
-                      resource.id
-                    )}
-                    onToggleBookmark={toggleBookmark}
-                    onOpenModal={setSelectedResource}
-                  />
-                ))}
-              </SimpleGrid>
-            ) : (
-              <Paper
-                withBorder
-                p="xl"
-                radius="md"
-              >
-                <Text
-                  ta="center"
-                  c="dimmed"
-                >
-                  No resources found.
-                </Text>
-              </Paper>
-            )}
-          </div>
-
-          {/* Quick View Modal */}
-          <ResourceModal
-            resource={selectedResource}
-            opened={selectedResource !== null}
-            onClose={() =>
-              setSelectedResource(null)
-            }
-          />
+              </Stack>
+            </Paper>
+          )}
 
         </Stack>
       </Container>
+
+      <ResourceModal
+        resource={selectedResource}
+        opened={selectedResource !== null}
+        onClose={() => setSelectedResource(null)}
+      />
     </div>
   );
 } 
